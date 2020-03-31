@@ -22,7 +22,6 @@ class MFCCSource(FileDataSource):
     def collect_files(self):
 
         wav_paths = sorted(glob(join(self.data_root, "*.wav")))
-        print(wav_paths)
         label_paths = wav_paths
         if self.max_files is not None and self.max_files > 0:
             return wav_paths[:self.max_files], label_paths[:self.max_files]
@@ -31,7 +30,6 @@ class MFCCSource(FileDataSource):
 
     def collect_features(self, wav_path, label_path):
         x, fs = librosa.load(wav_path)
-        print(fs)
         mfcc = librosa.feature.mfcc(x)
 
         return mfcc.astype(np.float32)
@@ -40,16 +38,14 @@ class MFCCSource(FileDataSource):
 class ArticulatoryDataset(Dataset):
     """Articulatory dataset."""
 
-    def __init__(self, root_dir_input, root_dir_output, pad=3408, transform=None):
+    def __init__(self, root_dir_input, pad=3408, transform=None):
         """
         Args:
             root_dir_input (string): Directory with all the EMA
-            root_dir_output (string): Directory with all the vocoder parameters
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
         self.root_dir_input = root_dir_input
-        self.root_dir_output = root_dir_output
 
         # Fetching the glob to calculate the number of samples
         self.all_ema_files = glob(os.path.join(root_dir_input,"*.ema"))
@@ -138,16 +134,8 @@ class ArticulatoryDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        print(self.all_ema_files)
-
         path = os.path.join(self.all_ema_files[idx])
-        # Function which creates float ndarray from articulation
-        """
-        The PyTorch WaveNet vocoder uses np.float64, which means that the resolution quality will be probably better
-        with double point resolution. For that reason, we make the articulatory trajectories np.flota64 too.
-        """
         articulation = self.__ema__(path).astype(np.float64)
-
 
         return articulation
 
@@ -163,10 +151,12 @@ if __name__ == '__main__':
     mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/train"))
 
     # Iterating through the data extracting MFCCs
-    #for i in range(len(mfcc_x)):
-    #    plt.imshow(mfcc_x[i],aspect="auto")
-    #    plt.show()
-    # Iterating through the EMA showing plots
+    for i in range(len(mfcc_x)):
+       plt.imshow(mfcc_x[i],aspect="auto")
+       plt.show()
+
+
+    #Iterating through the EMA showing plots
 
     audio_x = ArticulatoryDataset(root_dir_input="mngu0_ema/train", root_dir_output="")
 
