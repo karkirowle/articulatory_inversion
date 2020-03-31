@@ -163,3 +163,4 @@ if __name__ == '__main__':
     for i in range(len(audio_x)):
         plt.plot(audio_x[i])
         plt.show()
+
