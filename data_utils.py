@@ -1,7 +1,6 @@
 
 
 
-import os
 from os.path import join
 import torch
 import numpy as np
@@ -20,7 +19,6 @@ class MFCCSource(FileDataSource):
         self.alpha = None
 
     def collect_files(self):
-
         wav_paths = sorted(glob(join(self.data_root, "*.wav")))
         label_paths = wav_paths
         if self.max_files is not None and self.max_files > 0:
@@ -30,7 +28,7 @@ class MFCCSource(FileDataSource):
 
     def collect_features(self, wav_path, label_path):
         x, fs = librosa.load(wav_path)
-        mfcc = librosa.feature.mfcc(x).T
+        mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=110).T
 
 
         return mfcc.astype(np.float32)
@@ -60,7 +58,7 @@ class ArticulatorySource(FileDataSource):
         return s.rstrip('\n').strip()
 
     def collect_features(self, ema_path):
-        print("sajt")
+        #print("sajt")
 
         columns = {}
         columns["time"] = 0
@@ -113,18 +111,48 @@ class NanamiDataset(Dataset):
     """
     Generic wrapper around nnmnkwii datsets
     """
-    def __init__(self,padded_file_source):
-        self.padded_file_source = padded_file_source
-
+    def __init__(self,speech_padded_file_source,art_padded_file_source):
+        self.speech = speech_padded_file_source
+        self.art = art_padded_file_source
 
     def __len__(self):
-        return len(self.padded_file_source)
+        return len(self.speech)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        return self.padded_file_source[idx]
+        sample = {'speech': self.speech[idx], 'art': self.art[idx]}
+        return sample
+
+class DummyDataset(Dataset):
+    """
+    Sinusoidal dummy dataset
+    """
+    def __init__(self,speech_padded_file_source,art_padded_file_source):
+        self.speech = speech_padded_file_source
+        self.art = art_padded_file_source
+
+    def __len__(self):
+        return len(self.speech)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        time = np.arange(0, 0.1, 0.0001)
+        #print(idx, "Hz")
+        f = idx
+        speech = np.sin(2 * np.pi * f * time).astype(np.float32)
+        speech = speech[:,None]
+
+        art = 5 * np.cos(2 * np.pi * f * time).astype(np.float32)
+        art = art[:,None]
+        sample = {'speech': speech, 'art': art}
+        return sample
+
+
+
 
 
 if __name__ == '__main__':
@@ -132,11 +160,14 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     # First commit is capable of
 
-    mfcc_x = PaddedFileSourceDataset(MFCCSource("mngu0_wav/train"),padded_length=1000)
+    mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/train"))
 
-    print(mfcc_x[0].shape)
+    print(mfcc_x[2].shape)
 
-    audio_x = PaddedFileSourceDataset(ArticulatorySource("mngu0_ema/train"),padded_length=2500)
+    plt.imshow(mfcc_x[2],aspect="auto")
+    plt.show()
+    art_x = FileSourceDataset(ArticulatorySource("mngu0_ema/train"))
 
 
-    print(audio_x[0].shape)
+    print(art_x[2].shape)
+
