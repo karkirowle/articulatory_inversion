@@ -27,8 +27,19 @@ class MFCCSource(FileDataSource):
             return wav_paths, label_paths
 
     def collect_features(self, wav_path, label_path):
-        x, fs = librosa.load(wav_path)
-        mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=110).T
+
+
+
+
+        x, fs = librosa.load(wav_path,sr=16000)
+
+        frame_time = 25 / 1000
+        hop_time = 10 / 1000
+        hop_length = int(hop_time * 16000)
+        frame_length = int(frame_time * 16000)
+        #print(frame_length)
+        #print(fs)
+        mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=hop_length,n_mfcc=40,n_fft=frame_length).T
 
 
         return mfcc.astype(np.float32)
@@ -152,7 +163,30 @@ class DummyDataset(Dataset):
         return sample
 
 
+def collate_wrapper(batch):
 
+    max_duration = 0
+    for idx in range(len(batch)):
+        a = batch[idx]['speech'].shape[0]
+        art = batch[idx]['art']
+        art_temp = scipy.signal.resample(art, num=a)
+        batch[idx]['art'] = art_temp
+        if a > max_duration:
+            max_duration = a
+
+    speech = np.zeros((len(batch),max_duration,40))
+    art = np.zeros((len(batch),max_duration,12))
+    for idx in range(len(batch)):
+        speech_temp = batch[idx]['speech']
+        speech_duration = speech_temp.shape[0]
+        art_temp = batch[idx]['art']
+        art_duration = art_temp.shape[0]
+
+        speech[idx,:speech_duration,:] = speech_temp
+        art[idx,:art_duration,:] = art_temp
+
+    sample = {'speech': torch.FloatTensor(speech), 'art': torch.FloatTensor(art)}
+    return sample
 
 
 if __name__ == '__main__':
@@ -160,14 +194,28 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     # First commit is capable of
 
-    mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/train"))
-
-    print(mfcc_x[2].shape)
-
-    plt.imshow(mfcc_x[2],aspect="auto")
-    plt.show()
-    art_x = FileSourceDataset(ArticulatorySource("mngu0_ema/train"))
 
 
-    print(art_x[2].shape)
+
+    mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/test"))
+
+    mfcc, name = mfcc_x[2]
+
+    #print(mfcc)
+    print(name)
+
+    #plt.imshow(mfcc_x[2],aspect="auto")
+    #plt.show()
+    art_x = FileSourceDataset(ArticulatorySource("mngu0_ema/test"))
+
+
+
+    dataset = NanamiDataset(mfcc_x, art_x)
+
+    for i in range(len(dataset)):
+        dataset[i]
+
+
+    art, name = art_x[2]
+    print(name)
 

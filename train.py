@@ -5,7 +5,7 @@ from models import NeuralNet, DBLSTM, LinearRegression
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import PaddedFileSourceDataset, FileSourceDataset
-from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, DummyDataset
+from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, DummyDataset, collate_wrapper
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -13,13 +13,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 global_padded_length = 3500
 
-mfcc_x = PaddedFileSourceDataset(MFCCSource("mngu0_wav/train"), padded_length=global_padded_length)
+mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/train"))
 #mfcc_x_len = FileSourceDataset(MFCCSource("mngu0_wav/train"))
-art_x = PaddedFileSourceDataset(ArticulatorySource("mngu0_ema/train"), padded_length=global_padded_length)
+art_x = FileSourceDataset(ArticulatorySource("mngu0_ema/train"))
 
-mfcc_x_test = PaddedFileSourceDataset(MFCCSource("mngu0_wav/test"), padded_length=global_padded_length)
+mfcc_x_test = FileSourceDataset(MFCCSource("mngu0_wav/test"))
 #mfcc_x_test_len = FileSourceDataset(MFCCSource("mngu0_wav/eval"))
-art_x_test = PaddedFileSourceDataset(ArticulatorySource("mngu0_ema/test"), padded_length=global_padded_length)
+art_x_test = FileSourceDataset(ArticulatorySource("mngu0_ema/test"))
 
 dataset = NanamiDataset(mfcc_x, art_x)
 dataset_test = NanamiDataset(mfcc_x_test, art_x_test)
@@ -30,16 +30,16 @@ dataset_test = NanamiDataset(mfcc_x_test, art_x_test)
 batch_size = 16
 train_loader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size, shuffle=True,
-                                             num_workers=4)
+                                             num_workers=4, collate_fn=collate_wrapper)
 
 
 test_loader= torch.utils.data.DataLoader(dataset_test,
                                              batch_size=1, shuffle=True,
-                                             num_workers=4)
+                                             num_workers=4,collate_fn=collate_wrapper)
 
 
 
-input_size=20
+input_size=40
 #input_size = 1
 hidden_size=300
 hidden_size_2=100
@@ -59,7 +59,7 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 # Train the model
-train = True
+train = False
 if train:
     total_step = len(train_loader)
     total_loss = 0
@@ -80,7 +80,7 @@ if train:
             optimizer.step()
 
         total_loss = np.sqrt(total_loss / len(train_loader))
-        print('Epoch [{}/{}], Train RMSE: {:.4f} mm'.format(epoch + 1, num_epochs, loss.item()))
+        print('Epoch [{}/{}], Train RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss.item()))
 
         with torch.no_grad():
             total_loss = 0
@@ -92,10 +92,10 @@ if train:
                 total_loss += loss.item()
 
         loss = np.sqrt(total_loss / len(test_loader))
-        print('Epoch [{}/{}], Test RMSE: {:.4f} mm'.format(epoch + 1, num_epochs, loss))
+        print('Epoch [{}/{}], Test RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss))
         torch.save(model.state_dict(), 'model_dblstm_' + str(epoch) + '.ckpt')
 else:
-    model.load_state_dict(torch.load("model_dblstm_13.ckpt"))
+    model.load_state_dict(torch.load("model_dblstm_48.ckpt"))
     #model.load_state_dict('model.ckpt')
 
     for i, sample in enumerate(test_loader):

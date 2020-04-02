@@ -33,6 +33,8 @@ class DBLSTM(nn.Module):
         super(DBLSTM, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.fc2 = nn.Linear(hidden_size,hidden_size)
+        #self.dropout_1 = nn.Dropout(p=0.2)
+        #self.dropout_2 = nn.Dropout(p=0.2)
         self.num_layers = 2
         self.hidden_dim = hidden_size
         self.lstm1 = nn.LSTM(hidden_size,hidden_size_2,bidirectional=True,num_layers=self.num_layers)
