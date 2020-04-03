@@ -42,7 +42,7 @@ class MFCCSource(FileDataSource):
         mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=hop_length,n_mfcc=40,n_fft=frame_length).T
 
 
-        return mfcc.astype(np.float32)
+        return mfcc.astype(np.float32), wav_path
 
 
 class ArticulatorySource(FileDataSource):
@@ -116,7 +116,7 @@ class ArticulatorySource(FileDataSource):
                 for j in np.argwhere(np.isnan(data_out)).ravel():
                     data_out[j] = scipy.interpolate.splev(j, spline)
 
-        return data_out
+        return data_out, ema_path
 
 class NanamiDataset(Dataset):
     """
@@ -133,7 +133,25 @@ class NanamiDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        sample = {'speech': self.speech[idx], 'art': self.art[idx]}
+
+        sample = {'speech': self.speech[idx][0], 'art': self.art[idx][0]}
+        return sample
+
+class InferenceDataset(Dataset):
+    """
+    Generic wrapper for nnmnkwii inference
+    """
+    def __init__(self,speech_padded_file_source):
+        self.speech = speech_padded_file_source
+
+    def __len__(self):
+        return len(self.speech)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        sample = {'speech': self.speech[idx][0], 'name': self.speech[idx][1]}
         return sample
 
 class DummyDataset(Dataset):
