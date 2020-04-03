@@ -21,8 +21,9 @@ If you don't like virtualenv, list of most important packages
 - nnmnkwii 0.0.20
 - numpy 1.18.2
 - torch 1.4.0
-- matplotlib 
-- sklearn
+- matplotlib 3.2.1
+- sklearn 0.22.2.post1
+- scipy 1.4.1
 
 ### Inference
 After downloading the model (TODO: link) and putting everything in the right directory
