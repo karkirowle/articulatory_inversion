@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from models import DBLSTM
+from attention_model import AttentionGRU
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
@@ -27,7 +28,7 @@ def train(train):
 
 
 
-    batch_size = 16
+    batch_size = 2
 
     train_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=batch_size, shuffle=True,
@@ -39,6 +40,7 @@ def train(train):
 
 
 
+    # DBLSTM Parameters
     input_size=40
     hidden_size=300
     hidden_size_2=100
@@ -47,29 +49,36 @@ def train(train):
     num_epochs=50
     learning_rate=1e-4
 
+    #model = DBLSTM(input_size,batch_size,hidden_size,hidden_size_2,num_classes).to(device)
 
-    #model = NeuralNet(input_size, hidden_size, num_classes).to(device)
-    model = DBLSTM(input_size,batch_size,hidden_size,hidden_size_2,num_classes).to(device)
-    #model = LinearRegression(input_size, num_classes).to(device)
+    # AttentionGRU models
+    emb_dim = 128
+    enc_hid_dim = 128
+    dec_hid_dim = 128
+    dropout = 0.0
+    model = AttentionGRU(input_size,emb_dim,enc_hid_dim,dec_hid_dim,num_classes,dropout).to(device)
+
 
     # Loss and optimizer
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train the model
-    #train = False
+    train = True
     if train:
         total_step = len(train_loader)
         total_loss = 0
         for epoch in range(num_epochs):
             print("Epoch ", epoch + 1)
             for i, sample in enumerate(train_loader):
+                print(i)
                 # Convert numpy arrays to torch tensors
                 inputs = sample['speech'].to(device)
                 #inputs = inputs.o
                 targets = sample['art'].to(device)
                 # Forward pass
-                outputs = model(inputs)
+                #outputs = model(inputs)
+                outputs = model(inputs,targets)
                 loss = criterion(outputs, targets)
                 total_loss += loss.item()
                 # Backward and optimize
@@ -91,7 +100,7 @@ def train(train):
 
             loss = np.sqrt(total_loss / len(test_loader))
             print('Epoch [{}/{}], Test RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss))
-            torch.save(model.state_dict(), 'model_dblstm_' + str(epoch) + '.ckpt')
+            torch.save(model.state_dict(), 'model_attention_' + str(epoch) + '.ckpt')
     else:
         model.load_state_dict(torch.load("model_dblstm_48.ckpt"))
         #model.load_state_dict('model.ckpt')
