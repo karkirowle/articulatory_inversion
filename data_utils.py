@@ -194,6 +194,7 @@ def collate_wrapper(batch):
 
     speech = np.zeros((len(batch),max_duration,40))
     art = np.zeros((len(batch),max_duration,12))
+    mask = np.zeros((len(batch),max_duration,12))
     for idx in range(len(batch)):
         speech_temp = batch[idx]['speech']
         speech_duration = speech_temp.shape[0]
@@ -202,8 +203,10 @@ def collate_wrapper(batch):
 
         speech[idx,:speech_duration,:] = speech_temp
         art[idx,:art_duration,:] = art_temp
+        mask[idx,:art_duration,:] = 1
 
-    sample = {'speech': torch.FloatTensor(speech), 'art': torch.FloatTensor(art)}
+    sample = {'speech': torch.FloatTensor(speech), 'art': torch.FloatTensor(art), 'mask': torch.BoolTensor(mask)}
+
     return sample
 
 

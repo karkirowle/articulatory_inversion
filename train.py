@@ -27,7 +27,7 @@ def train(train):
 
 
 
-    batch_size = 16
+    batch_size = 2
 
     train_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=batch_size, shuffle=True,
@@ -68,9 +68,10 @@ def train(train):
                 inputs = sample['speech'].to(device)
                 #inputs = inputs.o
                 targets = sample['art'].to(device)
+                mask = sample['mask'].to(device)
                 # Forward pass
                 outputs = model(inputs)
-                loss = criterion(outputs, targets)
+                loss = torch.sum(((outputs - targets) * mask) ** 2.0) / torch.sum(mask)
                 total_loss += loss.item()
                 # Backward and optimize
                 optimizer.zero_grad()
@@ -85,13 +86,14 @@ def train(train):
                 for i, sample in enumerate(test_loader):
                     inputs = sample['speech'].to(device)
                     targets = sample['art'].to(device)
+                    mask = sample['mask'].to(device)
                     outputs = model(inputs)
-                    loss = criterion(outputs, targets)
+                    loss = torch.sum(((outputs-targets)*mask)**2.0)  / torch.sum(mask)
                     total_loss += loss.item()
 
             loss = np.sqrt(total_loss / len(test_loader))
             print('Epoch [{}/{}], Test RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss))
-            torch.save(model.state_dict(), 'model_dblstm_' + str(epoch) + '.ckpt')
+            torch.save(model.state_dict(), 'model_dblstm_bs_2' + str(epoch) + '.ckpt')
     else:
         model.load_state_dict(torch.load("model_dblstm_48.ckpt"))
         #model.load_state_dict('model.ckpt')

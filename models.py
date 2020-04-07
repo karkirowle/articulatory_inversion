@@ -49,3 +49,5 @@ class DBLSTM(nn.Module):
         out, hidden = self.lstm1(out.view(out.shape[1],out.shape[0],-1))
         out = self.fc3(out.view(out.shape[1],out.shape[0],-1))
         return out
+
+
