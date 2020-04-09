@@ -5,9 +5,11 @@ def parse(p):
     """
     p.add_argument('--train', action="store_true", default= False,
                         help='Train model or just show prediction')
-    p.add_argument('--BLSTM', action="store_true", default= False,
+    p.add_argument('--BLSTM', type=bool, default= False,
                         help='BLSTM model flag')
 
+    p.add_argument('--attention', type=bool, default= False,
+                        help='BLSTM model flag')
     p.add('--input_size', type=int, default=40, help='Input size')
     p.add('--hidden_size', type=int, default=300, help='Hidden size controlling FCN')
     p.add('--hidden_size_2', type=int, default=100, help='Hidden size controlling BLSTM')
@@ -15,6 +17,13 @@ def parse(p):
     p.add('--num_epochs', type=int, default=50, help='Number of epochs')
     p.add('--batch_size', type=int, default=2, help='Batch size')
     p.add('--learning_rate', type=float, default=1e-4, help='Learning rate')
+    p.add('--emb_dim', type=int, default=128, help='Number of output feature channels')
+    p.add('--enc_hid_dim', type=int, default=128, help='Number of epochs')
+    p.add('--dec_hid_dim', type=int, default=128, help='Batch size')
+    p.add('--dropout', type=float, default=0.0, help='Learning rate')
+
+
+
 
     return p.parse_args()
 

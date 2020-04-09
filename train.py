@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from models import DBLSTM
+from attention_model import AttentionGRU
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
@@ -26,12 +27,15 @@ def train(args):
                                                  batch_size=args.batch_size, shuffle=True,
                                                  num_workers=4, collate_fn=pad_collate)
 
-    test_loader= torch.utils.data.DataLoader(dataset_test,
+    test_loader = torch.utils.data.DataLoader(dataset_test,
                                                  batch_size=1, shuffle=True,
                                                  num_workers=4,collate_fn=pad_collate)
 
 
-    model = DBLSTM(args).to(device)
+    if args.BLSTM:
+        model = DBLSTM(args).to(device)
+    if args.attention:
+        model = AttentionGRU(args).to(device)
 
     # Loss and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -50,7 +54,12 @@ def train(args):
                 targets = yy_pad.to(device)
                 mask = mask.to(device)
                 # Forward pass
-                outputs = model(inputs)
+
+                if args.BLSTM:
+                    outputs = model(inputs)
+                if args.attention:
+                    outputs = model(inputs,targets)
+
                 loss = torch.sum(((outputs - targets) * mask) ** 2.0) / torch.sum(mask)
                 total_loss += loss.item()
                 # Backward and optimize
@@ -68,7 +77,10 @@ def train(args):
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
                     mask = mask.to(device)
-                    outputs = model(inputs)
+                    if args.BLSTM:
+                        outputs = model(inputs)
+                    if args.attention:
+                        outputs = model(inputs, targets)
                     loss = torch.sum(((outputs-targets)*mask)**2.0) / torch.sum(mask)
                     total_loss += loss.item()
 
@@ -83,6 +95,11 @@ def train(args):
             inputs = xx_pad.to(device)
             targets = yy_pad.to(device)
             mask = mask.to(device)
+            if args.BLSTM:
+                outputs = model(inputs)
+            if args.attention:
+                outputs = model(inputs, targets)
+
             predicted = model(inputs).detach().cpu().numpy()
             targets=targets.detach().cpu().numpy()
             plt.plot(targets[0,:,0], label='Original data')

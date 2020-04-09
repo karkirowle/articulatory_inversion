@@ -5,12 +5,14 @@ import torch.nn.functional as F
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class AttentionGRU(nn.Module):
-    def __init__(self, input_dim, emb_dim, enc_hid_dim, dec_hid_dim, output_dim, dropout):
+    def __init__(self, args):
         super().__init__()
-        self.output_dim = output_dim
-        self.encoder = Encoder(input_dim, enc_hid_dim, dec_hid_dim, dropout)
-        self.attention = Attention(enc_hid_dim, dec_hid_dim)
-        self.decoder = Decoder(output_dim, emb_dim, enc_hid_dim, dec_hid_dim, dropout, self.attention)
+        self.output_dim = args.num_classes
+
+        print(args)
+        self.encoder = Encoder(args.input_size, args.enc_hid_dim, args.dec_hid_dim, args.dropout)
+        self.attention = Attention(args.enc_hid_dim, args.dec_hid_dim)
+        self.decoder = Decoder(args.num_classes, args.emb_dim, args.enc_hid_dim, args.dec_hid_dim, args.dropout, self.attention)
     def forward(self, input_tensor, output_tensor):
 
 
@@ -48,6 +50,9 @@ class Encoder(nn.Module):
 
     def forward(self, src):
         # src = [src len, batch size]
+
+
+        self.rnn.flatten_parameters()
 
         outputs, hidden = self.rnn(src)
 
@@ -157,6 +162,8 @@ class Decoder(nn.Module):
         rnn_input = torch.cat((embedded, weighted), dim=2)
 
         # rnn_input = [1, batch size, (enc hid dim * 2) + emb dim]
+
+        self.rnn.flatten_parameters()
 
         output, hidden = self.rnn(rnn_input, hidden.unsqueeze(0))
 
