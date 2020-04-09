@@ -6,31 +6,29 @@ from nnmnkwii.datasets import FileSourceDataset
 from data_utils import MFCCSource, InferenceDataset
 import numpy as np
 from os.path import split, join
-import argparse
 
-def infer(model_name,wav_dir,save_path):
+import configargparse
+from configs import configs
+def infer(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    input_size = 40
-    hidden_size = 300
-    hidden_size_2 = 100
-    num_classes = 12
-    batch_size = 1
-    model = DBLSTM(input_size, batch_size, hidden_size, hidden_size_2, num_classes).to(device)
 
-    mfcc_x_test = FileSourceDataset(MFCCSource(wav_dir))
+    model = DBLSTM(args).to(device)
+
+    mfcc_x_test = FileSourceDataset(MFCCSource(args.wav_dir))
     dataset_test = InferenceDataset(mfcc_x_test)
     test_loader = torch.utils.data.DataLoader(dataset_test,
                                               batch_size=1, shuffle=False,
                                               num_workers=4)
 
-    model.load_state_dict(torch.load(model_name))
+    model.load_state_dict(torch.load(args.model_name))
 
     for i, sample in enumerate(test_loader):
         inputs = sample['speech'].to(device)
+
         wav, filename = mfcc_x_test[i]
 
-        filename_save = join(save_path,split(filename)[1].split(".")[0])
+        filename_save = join(args.save_dir,split(filename)[1].split(".")[0])
         predicted = model(inputs).detach().cpu().numpy()
 
         plt.plot(predicted[0,:,:])
@@ -39,16 +37,17 @@ def infer(model_name,wav_dir,save_path):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Train and save a model.')
+    parser = configargparse.ArgParser()
 
-    parser.add_argument('--model', default="model_dblstm_48.ckpt",
+    parser.add_argument('--model_name', default="rmse_0_1077.ckpt",
                         help='PyTorch ckpt to use')
-    parser.add_argument('--wav_dir', default="mngu0_wav/test",
+    parser.add_argument('--wav_dir', default="testfiles.txt",
                         help='Directory with wav files to do the articulatory inversion on')
     parser.add_argument('--save_dir', default="/home/boomkin/repos/articulatory_inversion/mngu0_ema/predicted",
                         help='Directory to save articulatory inversion results to (.npy extension all)')
-    args = parser.parse_args()
+
+    args = configs.parse(parser)
 
 
-    infer(args.model,args.wav_dir,args.save_dir)
+    infer(args)
 

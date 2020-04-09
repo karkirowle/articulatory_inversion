@@ -24,6 +24,7 @@ If you don't like virtualenv, list of most important packages
 - matplotlib 3.2.1
 - sklearn 0.22.2.post1
 - scipy 1.4.1
+- ConfigArgParse 1.2
 
 ### Inference
 After downloading the [model](https://drive.google.com/drive/folders/1DY7uF2HuW-oUpUmjjvuuNbkpZXrBAYrv?usp=sharing) and putting everything in the right directory
@@ -38,7 +39,7 @@ python3 infer.py --help
 
 ### Train
 ```
-python3 train.py --train
+python3 train.py --my-conf=configs/BLSTM.conf
 ```
 
 
@@ -51,16 +52,21 @@ they haven't provided the train-test partitioning.
 I assume that the measurement data is in cm (not given in dataset, but mentioned in [MNGU0 forum](http://www.mngu0.org/messages/problems-bugs-etc/195679262))
 
 - ADAM optimisation instead of RMSProp
-- librosa MFCC (40) instead of LSF (40)
+- librosa MFCC (40) instead of STRAIGHT (?) LSF (40)
 - ReLU is used on the FCN layers, instead of tanh. 
 - No context windows. LSTM should be able to model dynamic information.
+- We sticked to the full retraining, instead of the layerwise pretraining
+- 50 epochs best validation loss instead of early stopping
+
+| Model | Papers result | Our result |
+| ----- | ------------- | ---------- |
+| BLSTM | ? | 1.077 mm | 
 
 
 ### Notes on why is it difficult to compare baselines with each other
 
 - Some works smooth/low-pass filter EMA signal (?)
-- No train-test partition, and even if there is, no guarantee that architectures
-are not optimised on test set (bad practice)
+
 - Lot of preprocessing trickery is employed, not just simple switch
 of frontends
 
@@ -70,6 +76,3 @@ Contributions are welcome. The general desire with this repository is
 to keep the preprocessing code as minimal as possible (no intervention to the data). Thus,
 contributions should focus on better neural network models. (seq2seq)
 
-### Train-test partitioning
-
-See [train_test.txt here](https://drive.google.com/drive/folders/1DY7uF2HuW-oUpUmjjvuuNbkpZXrBAYrv?usp=sharing).

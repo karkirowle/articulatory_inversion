@@ -5,70 +5,50 @@ from models import DBLSTM
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
-from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, collate_wrapper
-import argparse
+from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, pad_collate
+import configargparse
+from configs import configs
 
-# Device configuration
-
-
-def train(train):
+def train(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    mfcc_x = FileSourceDataset(MFCCSource("trainfiles.txt"))
+    art_x = FileSourceDataset(ArticulatorySource("trainfiles.txt"))
 
-    mfcc_x = FileSourceDataset(MFCCSource("mngu0_wav/train"))
-    art_x = FileSourceDataset(ArticulatorySource("mngu0_ema/train"))
-
-    mfcc_x_test = FileSourceDataset(MFCCSource("mngu0_wav/test"))
-    art_x_test = FileSourceDataset(ArticulatorySource("mngu0_ema/test"))
+    mfcc_x_test = FileSourceDataset(MFCCSource("testfiles.txt"))
+    art_x_test = FileSourceDataset(ArticulatorySource("testfiles.txt"))
 
     dataset = NanamiDataset(mfcc_x, art_x)
     dataset_test = NanamiDataset(mfcc_x_test, art_x_test)
 
-
-
-    batch_size = 2
-
     train_loader = torch.utils.data.DataLoader(dataset,
-                                                 batch_size=batch_size, shuffle=True,
-                                                 num_workers=4, collate_fn=collate_wrapper)
+                                                 batch_size=args.batch_size, shuffle=True,
+                                                 num_workers=4, collate_fn=pad_collate)
 
     test_loader= torch.utils.data.DataLoader(dataset_test,
                                                  batch_size=1, shuffle=True,
-                                                 num_workers=4,collate_fn=collate_wrapper)
+                                                 num_workers=4,collate_fn=pad_collate)
 
 
-
-    input_size=40
-    hidden_size=300
-    hidden_size_2=100
-
-    num_classes=12
-    num_epochs=50
-    learning_rate=1e-4
-
-
-    #model = NeuralNet(input_size, hidden_size, num_classes).to(device)
-    model = DBLSTM(input_size,batch_size,hidden_size,hidden_size_2,num_classes).to(device)
-    #model = LinearRegression(input_size, num_classes).to(device)
+    model = DBLSTM(args).to(device)
 
     # Loss and optimizer
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
     # Train the model
-    #train = False
+
     if train:
-        total_step = len(train_loader)
         total_loss = 0
-        for epoch in range(num_epochs):
+        for epoch in range(args.num_epochs):
             print("Epoch ", epoch + 1)
             for i, sample in enumerate(train_loader):
+                xx_pad,  yy_pad, x_lens, y_lens, mask = sample
                 # Convert numpy arrays to torch tensors
-                inputs = sample['speech'].to(device)
+                inputs = xx_pad.to(device)
                 #inputs = inputs.o
-                targets = sample['art'].to(device)
-                mask = sample['mask'].to(device)
+                targets = yy_pad.to(device)
+                mask = mask.to(device)
                 # Forward pass
                 outputs = model(inputs)
                 loss = torch.sum(((outputs - targets) * mask) ** 2.0) / torch.sum(mask)
@@ -79,28 +59,30 @@ def train(train):
                 optimizer.step()
 
             total_loss = np.sqrt(total_loss / len(train_loader))
-            print('Epoch [{}/{}], Train RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss.item()))
+            print('Epoch [{}/{}], Train RMSE: {:.4f} cm'.format(epoch + 1, args.num_epochs, total_loss))
 
             with torch.no_grad():
                 total_loss = 0
                 for i, sample in enumerate(test_loader):
-                    inputs = sample['speech'].to(device)
-                    targets = sample['art'].to(device)
-                    mask = sample['mask'].to(device)
+                    xx_pad, yy_pad, x_lens, y_lens, mask = sample
+                    inputs = xx_pad.to(device)
+                    targets = yy_pad.to(device)
+                    mask = mask.to(device)
                     outputs = model(inputs)
-                    loss = torch.sum(((outputs-targets)*mask)**2.0)  / torch.sum(mask)
+                    loss = torch.sum(((outputs-targets)*mask)**2.0) / torch.sum(mask)
                     total_loss += loss.item()
 
-            loss = np.sqrt(total_loss / len(test_loader))
-            print('Epoch [{}/{}], Test RMSE: {:.4f} cm'.format(epoch + 1, num_epochs, loss))
-            torch.save(model.state_dict(), 'model_dblstm_bs_2' + str(epoch) + '.ckpt')
+                total_loss = np.sqrt(total_loss / len(test_loader))
+                print('Epoch [{}/{}], Test RMSE: {:.4f} cm'.format(epoch + 1, args.num_epochs, total_loss))
+                torch.save(model.state_dict(), 'model_dblstm_bs_2' + str(epoch) + '.ckpt')
     else:
         model.load_state_dict(torch.load("model_dblstm_48.ckpt"))
-        #model.load_state_dict('model.ckpt')
 
         for i, sample in enumerate(test_loader):
-            inputs = sample['speech'].to(device)
-            targets = sample['art'].to(device)
+            xx_pad, yy_pad, x_lens, y_lens, mask = sample
+            inputs = xx_pad.to(device)
+            targets = yy_pad.to(device)
+            mask = mask.to(device)
             predicted = model(inputs).detach().cpu().numpy()
             targets=targets.detach().cpu().numpy()
             plt.plot(targets[0,:,0], label='Original data')
@@ -108,18 +90,12 @@ def train(train):
             plt.legend()
             plt.show()
 
-    # Save the model checkpoint
-    # torch.save(model.state_dict(), 'model.ckpt')
-
 
 if __name__ == '__main__':
 
+    p = configargparse.ArgParser()
+    p.add('-c', '--my-config', required=True, is_config_file=True, help='config file path')
 
-    parser = argparse.ArgumentParser(description='Train and save a model.')
+    args = configs.parse(p)
 
-    parser.add_argument('--train', type=bool, default= False,
-                        help='whether to save one graph of prediction & target of the test ')
-
-    args = parser.parse_args()
-
-    train(args.train)
+    train(args)
