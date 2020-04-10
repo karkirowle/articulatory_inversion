@@ -42,15 +42,14 @@ def train(args):
 
     # Train the model
 
-    if train:
+    if args.train:
         total_loss = 0
         for epoch in range(args.num_epochs):
             print("Epoch ", epoch + 1)
             for i, sample in enumerate(train_loader):
-                xx_pad,  yy_pad, x_lens, y_lens, mask = sample
+                xx_pad,  yy_pad, _, _, mask = sample
                 # Convert numpy arrays to torch tensors
                 inputs = xx_pad.to(device)
-                #inputs = inputs.o
                 targets = yy_pad.to(device)
                 mask = mask.to(device)
                 # Forward pass
@@ -73,7 +72,7 @@ def train(args):
             with torch.no_grad():
                 total_loss = 0
                 for i, sample in enumerate(test_loader):
-                    xx_pad, yy_pad, x_lens, y_lens, mask = sample
+                    xx_pad, yy_pad, _, _, mask = sample
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
                     mask = mask.to(device)
@@ -91,10 +90,9 @@ def train(args):
         model.load_state_dict(torch.load("model_dblstm_48.ckpt"))
 
         for i, sample in enumerate(test_loader):
-            xx_pad, yy_pad, x_lens, y_lens, mask = sample
+            xx_pad, yy_pad, _, _, _ = sample
             inputs = xx_pad.to(device)
             targets = yy_pad.to(device)
-            mask = mask.to(device)
             if args.BLSTM:
                 outputs = model(inputs)
             if args.attention:

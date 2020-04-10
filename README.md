@@ -39,9 +39,8 @@ python3 infer.py --help
 
 ### Train
 ```
-python3 train.py --my-conf=configs/BLSTM.conf
+python3 train.py --train --my-conf=configs/BLSTM.conf
 ```
-
 
 ### Modifications from paper
 
