@@ -36,6 +36,30 @@ class MFCCSource(FileDataSource):
 
         return mfcc.astype(np.float32), wav_path
 
+class MFCCSourceNPY(FileDataSource):
+    def __init__(self,data_root,max_files=None):
+        self.data_root = data_root
+        self.max_files = max_files
+        self.alpha = None
+
+    def collect_files(self):
+        files = open(self.data_root).read().splitlines()
+
+        # Because of a,b,c,d,e,f not being included, we need a more brute force globbing approach here
+        files_wav = list(map(lambda x: "mngu0_wav/npy/" + x + "*.wav.npy", files))
+        all_files = [glob(files) for files in files_wav]
+        all_files_flattened = list(itertools.chain(*all_files))
+        return all_files_flattened
+
+    def collect_features(self, npy_path):
+
+        mfcc = np.load(npy_path)
+        return mfcc, npy_path
+
+
+
+
+
 class PPGSource(FileDataSource):
     def __init__(self,data_root,max_files=None):
         self.data_root = data_root
@@ -233,3 +257,6 @@ def collate_wrapper(batch):
     sample = {'speech': torch.FloatTensor(speech), 'art': torch.FloatTensor(art), 'mask': torch.BoolTensor(mask)}
 
     return sample
+
+
+

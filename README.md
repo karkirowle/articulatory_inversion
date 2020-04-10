@@ -26,6 +26,17 @@ If you don't like virtualenv, list of most important packages
 - scipy 1.4.1
 - ConfigArgParse 1.2
 
+### Preprocessing
+
+The files can run with and without preprocessing. It is recommended to preprocess,
+because recalculating the FFT slows the training.
+
+If you preprocess run first,
+```
+python3 preprocessing.py
+```
+Otherwise, rewrite MFCCSource to MFCCSourceNPY in train.py (flag will be provided in later version)
+
 ### Inference
 After downloading the [model](https://drive.google.com/drive/folders/1DY7uF2HuW-oUpUmjjvuuNbkpZXrBAYrv?usp=sharing) and putting everything in the right directory
 the model should work with the default:
@@ -59,7 +70,7 @@ I assume that the measurement data is in cm (not given in dataset, but mentioned
 
 | Model | Papers result | Our result |
 | ----- | ------------- | ---------- |
-| BLSTM | ? | 1.077 mm | 
+| BLSTM | 0.963 mm | 1.077 mm | 
 
 
 ### Notes on why is it difficult to compare baselines with each other

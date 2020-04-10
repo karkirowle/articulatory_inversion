@@ -6,7 +6,7 @@ from attention_model import AttentionGRU
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
-from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, pad_collate
+from data_utils import MFCCSource, ArticulatorySource, NanamiDataset, pad_collate, MFCCSourceNPY
 import configargparse
 from configs import configs
 
@@ -14,10 +14,10 @@ def train(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    mfcc_x = FileSourceDataset(MFCCSource("trainfiles.txt"))
+    mfcc_x = FileSourceDataset(MFCCSourceNPY("trainfiles.txt"))
     art_x = FileSourceDataset(ArticulatorySource("trainfiles.txt"))
 
-    mfcc_x_test = FileSourceDataset(MFCCSource("testfiles.txt"))
+    mfcc_x_test = FileSourceDataset(MFCCSourceNPY("testfiles.txt"))
     art_x_test = FileSourceDataset(ArticulatorySource("testfiles.txt"))
 
     dataset = NanamiDataset(mfcc_x, art_x)
