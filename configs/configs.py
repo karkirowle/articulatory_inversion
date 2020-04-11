@@ -22,6 +22,7 @@ def parse(p):
     p.add('--num_epochs', type=int, default=50, help='Number of epochs')
     p.add('--batch_size', type=int, default=2, help='Batch size')
     p.add('--learning_rate', type=float, default=1e-4, help='Learning rate')
+    p.add('--weight_decay', type=float, default=1e-4, help='Weight decay')
     p.add('--emb_dim', type=int, default=128, help='?')
     p.add('--enc_hid_dim', type=int, default=128, help='Encoder hidden dimension')
     p.add('--dec_hid_dim', type=int, default=128, help='Decoder hidden dimension')
