@@ -9,7 +9,12 @@ def parse(p):
                         help='BLSTM model flag')
 
     p.add_argument('--attention', type=bool, default= False,
-                        help='BLSTM model flag')
+                        help='Attention model flag')
+
+
+    p.add_argument('--self_att', type=str, default= False,
+                        help='Self attention model flag (only_self/heads)')
+
     p.add('--input_size', type=int, default=40, help='Input size')
     p.add('--hidden_size', type=int, default=300, help='Hidden size controlling FCN')
     p.add('--hidden_size_2', type=int, default=100, help='Hidden size controlling BLSTM')
@@ -17,10 +22,10 @@ def parse(p):
     p.add('--num_epochs', type=int, default=50, help='Number of epochs')
     p.add('--batch_size', type=int, default=2, help='Batch size')
     p.add('--learning_rate', type=float, default=1e-4, help='Learning rate')
-    p.add('--emb_dim', type=int, default=128, help='Number of output feature channels')
-    p.add('--enc_hid_dim', type=int, default=128, help='Number of epochs')
-    p.add('--dec_hid_dim', type=int, default=128, help='Batch size')
-    p.add('--dropout', type=float, default=0.0, help='Learning rate')
+    p.add('--emb_dim', type=int, default=128, help='?')
+    p.add('--enc_hid_dim', type=int, default=128, help='Encoder hidden dimension')
+    p.add('--dec_hid_dim', type=int, default=128, help='Decoder hidden dimension')
+    p.add('--dropout', type=float, default=0.0, help='Dropout rate')
 
 
 

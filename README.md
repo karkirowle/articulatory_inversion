@@ -25,6 +25,7 @@ If you don't like virtualenv, list of most important packages
 - sklearn 0.22.2.post1
 - scipy 1.4.1
 - ConfigArgParse 1.2
+- Tensorboard 2.2.0
 
 ### Preprocessing
 
@@ -35,7 +36,7 @@ If you preprocess run first,
 ```
 python3 preprocessing.py
 ```
-Otherwise, rewrite MFCCSource to MFCCSourceNPY in train.py (flag will be provided in later version)
+Otherwise, rewrite MFCCSourceNPY to MFCCSource in train.py (flag will be provided in later version)
 
 ### Inference
 After downloading the [model](https://drive.google.com/drive/folders/1DY7uF2HuW-oUpUmjjvuuNbkpZXrBAYrv?usp=sharing) and putting everything in the right directory
