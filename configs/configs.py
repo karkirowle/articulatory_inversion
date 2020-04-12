@@ -8,8 +8,10 @@ def parse(p):
     p.add_argument('--BLSTM', type=bool, default= False,
                         help='BLSTM model flag')
 
+    p.add_argument('--ResNet', type=bool, default= False,
+                        help='BLSTM model flag')
     p.add_argument('--attention', type=bool, default= False,
-                        help='Attention model flag')
+                        help='Resnet model flag')
 
 
     p.add_argument('--self_att', type=str, default= False,
@@ -26,6 +28,8 @@ def parse(p):
     p.add('--emb_dim', type=int, default=128, help='?')
     p.add('--enc_hid_dim', type=int, default=128, help='Encoder hidden dimension')
     p.add('--dec_hid_dim', type=int, default=128, help='Decoder hidden dimension')
+    p.add('--block_num', type=int, default=5, help='ResNet block number')
+
     p.add('--dropout', type=float, default=0.0, help='Dropout rate')
 
 

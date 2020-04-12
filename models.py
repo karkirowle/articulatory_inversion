@@ -3,6 +3,8 @@ import torch.nn.functional as F
 import torch
 import math
 
+import torchvision.models as models
+
 class Attention(nn.Module):
     def __init__(self, dropout=0.1):
         super(Attention,self).__init__()
@@ -84,6 +86,42 @@ class DBLSTM(nn.Module):
         out = F.relu(self.fc1(x))
         # out = self.bn1(out.transpose(2,1))
         out = F.relu(self.fc2(out))
+        # out = self.bn2(out.transpose(2,1))
+        # out = out.transpose(2,1)
+        # out, hidden = self.lstm1(out.view(out.shape[1],out.shape[0],-1))
+        out,hidden = self.lstm1(out)
+        if self.args.self_att == 'only_self' or self.args.self_att == 'heads':
+            out = self.att(out,out,out, mask)
+
+        out = self.fc3(out)
+        return out
+
+class DBLSTM2(nn.Module):
+    def __init__(self, args):
+        super(DBLSTM2, self).__init__()
+        self.args = args
+        self.fc1 = nn.Linear(args.input_size, args.hidden_size)
+        self.fc2 = nn.Linear(args.hidden_size,args.hidden_size)
+        self.bn1 = nn.BatchNorm1d(args.hidden_size)
+        self.bn2 = nn.BatchNorm1d(args.hidden_size)
+        self.num_layers = 2
+        self.hidden_dim = args.hidden_size
+        self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size_2,bidirectional=True,num_layers=self.num_layers,batch_first=True)
+        self.fc3 = nn.Linear(args.hidden_size_2 * 2,args.num_classes)
+
+        self.resnet = models.resnet18(pretrained=True)
+        self.resnet.fc = nn.Linear(512,args.hidden_size)
+        if args.self_att =='only_self':
+            self.att = Attention()
+        if args.self_att == 'heads':
+            self.att = MultiHeadAttention(d_model=args.hidden_size_2 * 2,n_heads=1)
+
+    def forward(self, x, mask=None):
+
+
+        out = F.relu(self.fc1(x))
+        # out = self.bn1(out.transpose(2,1))
+        #out = F.relu(self.fc2(out))
         # out = self.bn2(out.transpose(2,1))
         # out = out.transpose(2,1)
         # out, hidden = self.lstm1(out.view(out.shape[1],out.shape[0],-1))

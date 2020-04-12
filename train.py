@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import random
 from models import DBLSTM
+from resnet_model import DBLSTM2
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
@@ -50,9 +51,12 @@ def train(args):
 
     if args.BLSTM:
         model = DBLSTM(args).to(device)
+    if args.ResNet:
+        model = DBLSTM2(args).to(device)
 
     # Loss and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+
 
     # Train the model
 
@@ -69,8 +73,9 @@ def train(args):
                 mask = mask.to(device)
                 # Forward pass
 
-                if args.BLSTM:
+                if args.BLSTM | args.ResNet:
                     outputs = model(inputs)
+
                 if args.attention:
                     outputs = model(inputs,targets)
 
@@ -93,7 +98,7 @@ def train(args):
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
                     mask = mask.to(device)
-                    if args.BLSTM:
+                    if args.BLSTM | args.ResNet:
                         outputs = model(inputs)
                     if args.attention:
                         outputs = model(inputs, targets)
@@ -101,6 +106,7 @@ def train(args):
                     total_loss += loss.item()
 
                 total_loss = np.sqrt(total_loss / len(val_loader))
+                #scheduler.step(total_loss)
                 writer.add_scalar('Loss/Validation', total_loss, epoch + 1)
                 epoch_log[epoch, 1] = total_loss
                 print('Epoch [{}/{}], Validation RMSE: {:.4f} cm'.format(epoch + 1, args.num_epochs, total_loss))
@@ -112,7 +118,7 @@ def train(args):
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
                     mask = mask.to(device)
-                    if args.BLSTM:
+                    if args.BLSTM | args.ResNet:
                         outputs = model(inputs)
                     if args.attention:
                         outputs = model(inputs, targets)
@@ -135,7 +141,7 @@ def train(args):
             xx_pad, yy_pad, _, _, _ = sample
             inputs = xx_pad.to(device)
             targets = yy_pad.to(device)
-            if args.BLSTM:
+            if args.BLSTM | args.ResNet:
                 outputs = model(inputs)
             if args.attention:
                 outputs = model(inputs, targets)
