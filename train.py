@@ -62,6 +62,7 @@ def train(args):
 
     epoch_log = np.zeros((args.num_epochs,3))
     if args.train:
+        writer.add_hparams(args.__dict__,{'started':True})
         total_loss = 0
         for epoch in range(args.num_epochs):
             print("Epoch ", epoch + 1)

@@ -11,13 +11,13 @@ class DBLSTM2(nn.Module):
         self.fc1 = nn.Linear(args.input_size, args.hidden_size)
         self.fc2 = nn.Linear(args.hidden_size,args.hidden_size)
 
-        block_list = [args.hidden_size,32,64,64,64]
-
+        block_list = [args.hidden_size] + [int(block) for block in args.block_list.split(',')]
+        block_num = len(block_list)
         # Max block num here: 4
 
         resnet_block = []
 
-        for i in range(1,args.block_num):
+        for i in range(1,block_num):
             resnet_block.append(ResNetBlock(block_list[i-1],block_list[i]))
             resnet_block.append(ResNetBlock(block_list[i],block_list[i]))
 
@@ -25,7 +25,7 @@ class DBLSTM2(nn.Module):
         self.resnet_blocks = nn.Sequential(*resnet_block)
 
 
-        self.fc_after = nn.Linear(64,args.hidden_size)
+        self.fc_after = nn.Linear(block_list[block_num-1],args.hidden_size)
         self.num_layers = 2
         self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size_2,
                              bidirectional=True,num_layers=self.num_layers,batch_first=True)
@@ -46,7 +46,8 @@ class DBLSTM2(nn.Module):
         # out = self.res3(out)
         # out = self.res4(out)
 
-        out = self.fc_after(out.view(out.shape[0],out.shape[2],out.shape[1]))
+
+        out = F.relu(self.fc_after(out.view(out.shape[0],out.shape[2],out.shape[1])))
 
         #out = self.fc_after_resnet(out)
 

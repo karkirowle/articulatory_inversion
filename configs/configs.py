@@ -16,6 +16,8 @@ def parse(p):
 
     p.add_argument('--self_att', type=str, default= False,
                         help='Self attention model flag (only_self/heads)')
+    p.add_argument('--block_list', type=str, default= False,
+                        help='ResNet filter blocks as , delmited string')
 
     p.add('--input_size', type=int, default=40, help='Input size')
     p.add('--hidden_size', type=int, default=300, help='Hidden size controlling FCN')
