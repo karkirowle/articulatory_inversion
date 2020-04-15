@@ -13,6 +13,10 @@ def parse(p):
     p.add_argument('--attention', type=bool, default= False,
                         help='Resnet model flag')
 
+    p.add_argument('--SGD', type=bool, default= False,
+                        help='Use stochastig gradient descent (Loads learning rates and momentum from script)')
+    p.add_argument('--Adam', type=bool, default= False,
+                        help='Use Adam')
 
     p.add_argument('--self_att', type=str, default= False,
                         help='Self attention model flag (only_self/heads)')

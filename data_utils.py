@@ -27,14 +27,33 @@ class MFCCSource(FileDataSource):
 
     def collect_features(self, wav_path):
         x, fs = librosa.load(wav_path,sr=16000)
-        frame_time = 25 / 1000
-        hop_time = 10 / 1000
+        frame_time = 10 / 1000
+        hop_time = 5 / 1000
+        hop_length = int(hop_time * 16000)
+        frame_length = int(frame_time * 16000)
+        n_mels = 40
+        mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=hop_length,n_mfcc=40,n_fft=frame_length,n_mels=n_mels).T
+
+        return mfcc.astype(np.float32), wav_path
+
+
+class SpectrogramSource(MFCCSource):
+    def __init__(self,data_root,max_files=None):
+        self.data_root = data_root
+        self.max_files = max_files
+        self.alpha = None
+
+    def collect_features(self, wav_path):
+        x, fs = librosa.load(wav_path,sr=16000)
+        frame_time = 10 / 1000
+        hop_time = 5 / 1000
         hop_length = int(hop_time * 16000)
         frame_length = int(frame_time * 16000)
 
-        mfcc = librosa.feature.mfcc(x,sr=fs,hop_length=hop_length,n_mfcc=40,n_fft=frame_length).T
+        melspectrogram = librosa.feature.melspectrogram(x,sr=fs,hop_length=hop_length,n_fft=frame_length).T
 
-        return mfcc.astype(np.float32), wav_path
+        return melspectrogram.astype(np.float32), wav_path
+
 
 class MFCCSourceNPY(FileDataSource):
     def __init__(self,data_root,max_files=None):
@@ -44,7 +63,6 @@ class MFCCSourceNPY(FileDataSource):
 
     def collect_files(self):
         files = open(self.data_root).read().splitlines()
-
         # Because of a,b,c,d,e,f not being included, we need a more brute force globbing approach here
         files_wav = list(map(lambda x: "mngu0_wav/npy/" + x + "*.wav.npy", files))
         all_files = [glob(files) for files in files_wav]
@@ -54,10 +72,26 @@ class MFCCSourceNPY(FileDataSource):
     def collect_features(self, npy_path):
 
         mfcc = np.load(npy_path)
-        return mfcc, npy_path
+        return mfcc.astype(np.float32), npy_path
 
+class SpectogramSourceNPY(FileDataSource):
+    def __init__(self,data_root,max_files=None):
+        self.data_root = data_root
+        self.max_files = max_files
+        self.alpha = None
 
+    def collect_files(self):
+        files = open(self.data_root).read().splitlines()
 
+        # Because of a,b,c,d,e,f not being included, we need a more brute force globbing approach here
+        files_wav = list(map(lambda x: "mngu0_wav/spect_npy/" + x + "*.wav.npy", files))
+        all_files = [glob(files) for files in files_wav]
+        all_files_flattened = list(itertools.chain(*all_files))
+        return all_files_flattened
+
+    def collect_features(self, npy_path):
+        spect = np.load(npy_path)
+        return spect, npy_path
 
 
 class PPGSource(FileDataSource):
@@ -173,8 +207,28 @@ class NanamiDataset(Dataset):
 
         art_temp = scipy.signal.resample(self.art[idx][0], num=self.speech[idx][0].shape[0])
         return (torch.FloatTensor(self.speech[idx][0]), torch.FloatTensor(art_temp))
-        #sample = {'speech': self.speech[idx][0], 'art': self.art[idx][0]}
-        #return sample
+
+
+class NanamiDataset2(FileDataSource):
+    """
+    Generic wrapper around nnmnkwii datsets
+    """
+    def __init__(self,speech_padded_file_source,spect_padded_file_source,art_padded_file_source):
+        self.speech = speech_padded_file_source
+        self.art = art_padded_file_source
+        self.spect = spect_padded_file_source
+
+    def __len__(self):
+        return len(self.speech)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        art_temp = scipy.signal.resample(self.art[idx][0], num=self.speech[idx][0].shape[0])
+        return (torch.FloatTensor(self.speech[idx][0]),
+                torch.FloatTensor(art_temp),
+                torch.FloatTensor(self.spect[idx][0]))
 
 class InferenceDataset(Dataset):
     """
@@ -194,31 +248,6 @@ class InferenceDataset(Dataset):
         sample = {'speech': self.speech[idx][0], 'name': self.speech[idx][1]}
         return sample
 
-class DummyDataset(Dataset):
-    """
-    Sinusoidal dummy dataset
-    """
-    def __init__(self,speech_padded_file_source,art_padded_file_source):
-        self.speech = speech_padded_file_source
-        self.art = art_padded_file_source
-
-    def __len__(sbatchelf):
-        return len(self.speech)
-
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        time = np.arange(0, 0.1, 0.0001)
-        #print(idx, "Hz")
-        f = idx
-        speech = np.sin(2 * np.pi * f * time).astype(np.float32)
-        speech = speech[:,None]
-
-        art = 5 * np.cos(2 * np.pi * f * time).astype(np.float32)
-        art = art[:,None]
-        sample = {'speech': speech, 'art': art}
-        return sample
 
 def pad_collate(batch):
     (xx, yy) = zip(*batch)
@@ -230,33 +259,18 @@ def pad_collate(batch):
     mask = pad_sequence([torch.ones_like(y) for y in yy], batch_first=True, padding_value=0)
     return xx_pad,  yy_pad, x_lens, y_lens, mask
 
-def collate_wrapper(batch):
+def pad_collate_2(batch):
+    (xx, yy,zz) = zip(*batch)
+    x_lens = [len(x) for x in xx]
+    y_lens = [len(y) for y in yy]
+    z_lens = [len(z) for z in zz]
 
-    max_duration = 0
-    for idx in range(len(batch)):
-        a = batch[idx]['speech'].shape[0]
-        art = batch[idx]['art']
-        art_temp = scipy.signal.resample(art, num=a)
-        batch[idx]['art'] = art_temp
-        if a > max_duration:
-            max_duration = a
+    xx_pad = pad_sequence(xx, batch_first=True, padding_value=0)
+    yy_pad = pad_sequence(yy, batch_first=True, padding_value=0)
+    zz_pad = pad_sequence(zz, batch_first=True, padding_value=0)
 
-    speech = np.zeros((len(batch),max_duration,40))
-    art = np.zeros((len(batch),max_duration,12))
-    mask = np.zeros((len(batch),max_duration,12))
-    for idx in range(len(batch)):
-        speech_temp = batch[idx]['speech']
-        speech_duration = speech_temp.shape[0]
-        art_temp = batch[idx]['art']
-        art_duration = art_temp.shape[0]
 
-        speech[idx,:speech_duration,:] = speech_temp
-        art[idx,:art_duration,:] = art_temp
-        mask[idx,:art_duration,:] = 1
-
-    sample = {'speech': torch.FloatTensor(speech), 'art': torch.FloatTensor(art), 'mask': torch.BoolTensor(mask)}
-
-    return sample
-
+    mask = pad_sequence([torch.ones_like(y) for y in yy], batch_first=True, padding_value=0)
+    return xx_pad,  yy_pad, zz_pad, x_lens, y_lens, z_lens, mask
 
 

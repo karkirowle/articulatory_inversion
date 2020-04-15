@@ -2,7 +2,8 @@
 
 This is a DBLSTM baseline model based on the work of
 
-[LIU, Peng, et al. A deep recurrent approach for acoustic-to-articulatory inversion. In: 2015 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2015. p. 4450-4454.](https://ieeexplore.ieee.org/abstract/document/7178812)
+- (1) [LIU, Peng, et al. A deep recurrent approach for acoustic-to-articulatory inversion. In: 2015 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2015. p. 4450-4454.](https://ieeexplore.ieee.org/abstract/document/7178812)
+- (2) [Zhu, Pengcheng / Xie, Lei / Chen, Yunlin (2015): "Articulatory movement prediction using deep bidirectional long short-term memory based recurrent neural networks and word/phone embeddings", In INTERSPEECH-2015, 2192-2196.](https://www.isca-speech.org/archive/interspeech_2015/papers/i15_2192.pdf)
 
 The repository of [articulatory inversion from bootphon](https://github.com/bootphon/articulatory_inversion/blob/master/Training/train.py)
 was also a great help in keeping my sanity. A few code lines were shamelessly copied.
@@ -54,7 +55,7 @@ python3 infer.py --help
 python3 train.py --train --my-conf=configs/BLSTM.conf
 ```
 
-### Modifications from paper
+### Modifications from paper (1)
 
 I sticked to more standard LSTM tuning procedures, which explains the difference
 in test results partly. However, rigorous comparison with the paper is impossible as
@@ -71,15 +72,16 @@ I assume that the measurement data is in cm (not given in dataset, but mentioned
 
 | Model | Papers result | Our result |
 | ----- | ------------- | ---------- |
-| BLSTM | 0.963 mm | 1.077 mm | 
+| BLSTM (1) | 0.963 mm | 1.077 mm | 
 
 
-### Notes on why is it difficult to compare baselines with each other
+### Implementational nuances
 
-- Some works smooth/low-pass filter EMA signal (?)
-
-- Lot of preprocessing trickery is employed, not just simple switch
-of frontends
+- RMSE is defined in a slightly complicated way, we divide by the sequence length
+and sum for each sample. The last batch has less samples so it is reweighted to get a more
+faithful estimation of RMSE.
+- Number of mel filterbanks is set to 40 from librosa default 128. Otherwise we would
+get empty responses.
 
 ### Contributions
 
