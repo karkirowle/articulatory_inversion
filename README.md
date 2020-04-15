@@ -69,11 +69,23 @@ I assume that the measurement data is in cm (not given in dataset, but mentioned
 - No context windows. LSTM should be able to model dynamic information.
 - We sticked to the full retraining, instead of the layerwise pretraining
 - 50 epochs best validation loss instead of early stopping
+- PyTorch default initialisaion are used
+### Modifications from paper (2)
+
+Because MFCC is available in librosa I decided to make a more faithful
+implementation of the BLSTM. There are things that are still not evident from the
+paper, so I will contact the authors about these.
+
+- Batch size is not mentioned in the paper, so we used 64
+- Lower incisor is mentioned in the paper instead of jaw. That seems to be consistent
+across MNGU0 papers, though
+- No regularisation is mentioned in the paper
+- It is not clear whether they used layerwise pretraining for the model
 
 | Model | Papers result | Our result |
 | ----- | ------------- | ---------- |
 | BLSTM (1) | 0.963 mm | 1.077 mm | 
-
+| BLSTM (2) | 0.565 mm | 1.833 mm | 
 
 ### Implementational nuances
 
