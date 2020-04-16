@@ -36,6 +36,72 @@ class MFCCSource(FileDataSource):
 
         return mfcc.astype(np.float32), wav_path
 
+class LSFSource(FileDataSource):
+    def __init__(self,data_root,max_files=None):
+        self.data_root = data_root
+        self.max_files = max_files
+        self.alpha = None
+
+    def collect_files(self):
+        files = open(self.data_root).read().splitlines()
+
+        # Because of a,b,c,d,e,f not being included, we need a more brute force globbing approach here
+        files_wav = list(map(lambda x: "mngu0_lsf/*/" + x + ".lsf", files))
+        all_files = [glob(files) for files in files_wav]
+        all_files_flattened = list(itertools.chain(*all_files))
+        return all_files_flattened
+
+
+    def clean(self,s):
+        """
+        Strips the new line character from the buffer input
+        Parameters:
+        -----------
+        s: Byte buffer
+        Returns:
+        --------
+        p: string stripped from new-line character
+        """
+        s = str(s, "utf-8")
+        return s.rstrip('\n').strip()
+
+
+    def collect_features(self, lsf_path):
+        columns = {}
+        columns["time"] = 0
+        columns["present"] = 1
+
+        with open(lsf_path, 'rb') as f:
+
+            dummy_line = f.readline()  # EST File Track
+            datatype = self.clean(f.readline()).split()[1]
+            nframes = int(self.clean(f.readline()).split()[1])
+
+            nchannels = int(self.clean(f.readline()).split()[1])
+            while not 'BreaksPresent' in str(f.readline(), "utf-8"):
+                pass
+            # f.readline()  # empty line
+
+            line = self.clean(f.readline())
+
+            while not "ByteOrder" in line:
+                channel_number = int(line.split()[0].split('_')[1]) + 2
+                channel_name = line.split()[1]
+                columns[channel_name] = channel_number
+                line = self.clean(f.readline())
+
+            while not "EST_Header_End" in line:
+                line = self.clean(f.readline())
+
+            string = f.read()
+            data = np.fromstring(string, dtype='float32')
+
+            data_ = np.reshape(data, (nframes, len(columns)))
+
+            data_out = data_
+
+            return data_out[:,246:287], lsf_path
+
 
 class SpectrogramSource(MFCCSource):
     def __init__(self,data_root,max_files=None):
@@ -114,6 +180,7 @@ class PPGSource(FileDataSource):
         return x, wav_path
 
 
+
 class ArticulatorySource(FileDataSource):
     def __init__(self,data_root,max_files=None):
         self.data_root = data_root
@@ -190,6 +257,73 @@ class ArticulatorySource(FileDataSource):
 
         return data_out, ema_path
 
+class NormalisedArticulatorySource(ArticulatorySource):
+    def __init__(self,data_root,max_files=None):
+        self.data_root = data_root
+        self.max_files = max_files
+        self.alpha = None
+
+    def collect_files(self):
+        files = open(self.data_root).read().splitlines()
+        files_wav = list(map(lambda x: "mngu0_ema/all_normalised/" + x + "*.ema", files))
+        all_files = [glob(files) for files in files_wav]
+        all_files_flattened = list(itertools.chain(*all_files))
+        return all_files_flattened
+
+    def collect_features(self, ema_path):
+
+        columns = {}
+        columns["time"] = 0
+        columns["present"] = 1
+
+        with open(ema_path, 'rb') as f:
+
+            dummy_line = f.readline()  # EST File Track
+            datatype = self.clean(f.readline()).split()[1]
+            nframes = int(self.clean(f.readline()).split()[1])
+
+            nchannels = int(self.clean(f.readline()).split()[1])
+            while not 'BreaksPresent' in str(f.readline(), "utf-8"):
+                pass
+            #f.readline()  # empty line
+
+            line = self.clean(f.readline())
+
+            while not "ByteOrder" in line:
+                channel_number = int(line.split()[0].split('_')[1]) + 2
+                channel_name = line.split()[1]
+                columns[channel_name] = channel_number
+                line = self.clean(f.readline())
+
+            while not "EST_Header_End" in line:
+                line = self.clean(f.readline())
+
+
+            string = f.read()
+            data = np.fromstring(string, dtype='float32')
+
+            data_ = np.reshape(data, (nframes, len(columns)))
+
+            # There is a list of columns here we can select from, but looking around github, mostly the below are used
+
+            articulators = [
+                'T3_x', 'T3_y', 'T2_x', 'T2_y', 'T1_x', 'T1_y',
+                'JAW_x', 'JAW_y', 'UL_x', 'UL_y',
+                'LL_x', 'LL_y']
+            articulator_idx = [columns[articulator] for articulator in articulators]
+
+            data_out = data_[:, articulator_idx]
+
+            if np.isnan(data_out).sum() != 0:
+                # Build a cubic spline out of non-NaN values.
+                spline = scipy.interpolate.splrep(np.argwhere(~np.isnan(data_out).ravel()),
+                                                  data_out[~np.isnan(data_out)], k=3)
+                # Interpolate missing values and replace them.
+                for j in np.argwhere(np.isnan(data_out)).ravel():
+                    data_out[j] = scipy.interpolate.splev(j, spline)
+
+        return data_out, ema_path
+
 class NanamiDataset(Dataset):
     """
     Generic wrapper around nnmnkwii datsets
@@ -205,7 +339,10 @@ class NanamiDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
+
         art_temp = scipy.signal.resample(self.art[idx][0], num=self.speech[idx][0].shape[0])
+
+
         return (torch.FloatTensor(self.speech[idx][0]), torch.FloatTensor(art_temp))
 
 
@@ -225,7 +362,8 @@ class NanamiDataset2(FileDataSource):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        art_temp = scipy.signal.resample(self.art[idx][0], num=self.speech[idx][0].shape[0])
+
+        #art_temp = scipy.signal.resample(self.art[idx][0], num=self.speech[idx][0].shape[0])
         return (torch.FloatTensor(self.speech[idx][0]),
                 torch.FloatTensor(art_temp),
                 torch.FloatTensor(self.spect[idx][0]))
@@ -273,4 +411,9 @@ def pad_collate_2(batch):
     mask = pad_sequence([torch.ones_like(y) for y in yy], batch_first=True, padding_value=0)
     return xx_pad,  yy_pad, zz_pad, x_lens, y_lens, z_lens, mask
 
+
+if __name__ == '__main__':
+
+    import matplotlib.pyplot as plt
+    mfcc_x = FileSourceDataset(LSFSource("trainfiles.txt"))
 

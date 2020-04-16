@@ -65,17 +65,19 @@ class MultiHeadAttention(nn.Module):
         x = self.projection(x)  # (Batch, Seq, D_Model)
         return x
 
-class DBLSTM(nn.Module):
+class Modern_DBLSTM_1(nn.Module):
+    """
+    This is the more modern implementation for the  model from paper (1) see README.md
+    """
     def __init__(self, args):
-        super(DBLSTM, self).__init__()
+        super(Modern_DBLSTM_1, self).__init__()
         self.args = args
         self.fc1 = nn.Linear(args.input_size, args.hidden_size)
         self.fc2 = nn.Linear(args.hidden_size,args.hidden_size)
-        self.bn1 = nn.BatchNorm1d(args.hidden_size)
-        self.bn2 = nn.BatchNorm1d(args.hidden_size)
+
         self.num_layers = 2
         self.hidden_dim = args.hidden_size
-        self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size_2,bidirectional=True,num_layers=2,batch_first=True)
+        self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size_2,bidirectional=True,num_layers=self.num_layers,batch_first=True)
         self.fc3 = nn.Linear(args.hidden_size_2 * 2,args.num_classes)
         if args.self_att =='only_self':
             self.att = Attention()
@@ -84,11 +86,8 @@ class DBLSTM(nn.Module):
 
     def forward(self, x, mask=None):
         out = F.relu(self.fc1(x))
-        # out = self.bn1(out.transpose(2,1))
         out = F.relu(self.fc2(out))
-        # out = self.bn2(out.transpose(2,1))
-        # out = out.transpose(2,1)
-        # out, hidden = self.lstm1(out.view(out.shape[1],out.shape[0],-1))
+
         out,hidden = self.lstm1(out)
         if self.args.self_att == 'only_self' or self.args.self_att == 'heads':
             out = self.att(out,out,out, mask)
@@ -97,19 +96,25 @@ class DBLSTM(nn.Module):
         return out
 
 
-class DBLSTM_MFCC_1(nn.Module):
+class Traditional_BLSTM_2(nn.Module):
     """
+
+    This is the very traditional implementation (tanh and normal init) of the model from paper (2)
+
+    Structure is:
     FC-BLSTM-BLSTM-FC
+
     """
     def __init__(self, args):
-        super(DBLSTM_MFCC_1, self).__init__()
+        super(Traditional_BLSTM_2, self).__init__()
         self.args = args
-        self.fc1 = nn.Linear(args.input_size, 128)
+        self.fc1 = nn.Linear(args.input_size, args.hidden_size)
         self.fc1.weight.data.normal_(0,1)
         self.num_layers = 2
         self.hidden_dim = args.hidden_size
         self.tanh = nn.Tanh()
-        self.lstm1 = nn.LSTM(128,128,bidirectional=True,num_layers=2,batch_first=True)
+        self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size_2,
+                             bidirectional=True,num_layers=self.num_layers,batch_first=True)
 
         for param in self.lstm1.parameters():
             if len(param.shape) >= 2:
@@ -117,7 +122,7 @@ class DBLSTM_MFCC_1(nn.Module):
             else:
                 nn.init.normal_(param.data,mean=0,std=1)
 
-        self.fc2 = nn.Linear(128 * 2,args.num_classes)
+        self.fc2 = nn.Linear(args.hidden_size_2 * 2,args.num_classes)
         self.fc2.weight.data.normal_(0,1)
 
 
@@ -128,7 +133,28 @@ class DBLSTM_MFCC_1(nn.Module):
         out = self.fc2(out)
         return out
 
+class Modern_BLSTM_2(nn.Module):
+    """
 
+    This is the more modern implementation (tanh and normal init) of the model from paper (2)
+
+    FC-BLSTM-BLSTM-FC
+    """
+    def __init__(self, args):
+        super(Modern_BLSTM_2, self).__init__()
+        self.args = args
+        self.fc1 = nn.Linear(args.input_size, args.hidden_size)
+        self.num_layers = 2
+        self.hidden_dim = args.hidden_size
+        self.lstm1 = nn.LSTM(args.hidden_size,args.hidden_size,bidirectional=True,num_layers=2,batch_first=True)
+        self.fc2 = nn.Linear(args.hidden_size * 2,args.num_classes)
+
+    def forward(self, x, mask=None):
+        out = F.relu(self.fc1(x))
+        out,hidden = self.lstm1(out)
+
+        out = self.fc2(out)
+        return out
 
 class DBLSTM_LayerNorm(nn.Module):
     def __init__(self, args):

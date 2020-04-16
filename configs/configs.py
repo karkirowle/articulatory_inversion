@@ -5,9 +5,22 @@ def parse(p):
     """
     p.add_argument('--train', action="store_true", default= False,
                         help='Train model or just show prediction')
-    p.add_argument('--BLSTM', type=bool, default= False,
-                        help='BLSTM model flag')
 
+    # --------------------------------------------- FRONTEND SWITCHES --------------------------------------------------
+    p.add_argument('--MFCC', type=bool, default= False,
+                        help='Load pre-extracted librosa numpy features (unnormalised)')
+    p.add_argument('--LSF', type=bool, default=False,
+                   help='Load official MNGU0 provided Line Spectral Frequency features (normalised)')
+    p.add_argument('--art_norm', type=bool, default=False,
+                   help='Load official MNGU0 provided normalised articulatory trajectories')
+
+    # --------------------------------------------- BACKEND SWITCHES ---------------------------------------------------
+    p.add_argument('--Traditional_BLSTM_2', type=bool, default= False,
+                        help='BLSTM model flag')
+    p.add_argument('--Modern_BLSTM_2', type=bool, default= False,
+                        help='BLSTM model flag')
+    p.add_argument('--Modern_BLSTM_1', type=bool, default= False,
+                        help='BLSTM model flag')
     p.add_argument('--ResNet', type=bool, default= False,
                         help='BLSTM model flag')
     p.add_argument('--attention', type=bool, default= False,

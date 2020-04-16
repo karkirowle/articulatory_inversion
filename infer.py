@@ -1,7 +1,7 @@
 
 import torch
 import matplotlib.pyplot as plt
-from models import DBLSTM
+from models import Modern_DBLSTM_1
 from nnmnkwii.datasets import FileSourceDataset
 from data_utils import MFCCSource, InferenceDataset
 import numpy as np
@@ -13,7 +13,7 @@ def infer(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-    model = DBLSTM(args).to(device)
+    model = Modern_DBLSTM_1(args).to(device)
 
     mfcc_x_test = FileSourceDataset(MFCCSource(args.wav_dir))
     dataset_test = InferenceDataset(mfcc_x_test)

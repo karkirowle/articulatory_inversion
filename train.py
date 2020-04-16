@@ -1,19 +1,18 @@
 
 import torch
-import torch.nn as nn
 import random
-from models import DBLSTM, DBLSTM_LayerNorm, DBLSTM_MFCC_1
-from resnet_model import DBLSTM2
+from models import Modern_DBLSTM_1, DBLSTM_LayerNorm, Traditional_BLSTM_2, Modern_BLSTM_2
 import matplotlib.pyplot as plt
 import numpy as np
 from nnmnkwii.datasets import FileSourceDataset
-from data_utils import ArticulatorySource, NanamiDataset, pad_collate, MFCCSource, MFCCSourceNPY
+from data_utils import ArticulatorySource, NanamiDataset, pad_collate, MFCCSource, MFCCSourceNPY, LSFSource, NormalisedArticulatorySource
 import configargparse
 from configs import configs
 from torch.utils.tensorboard import SummaryWriter
 from utils import EarlyStopping
-#xinsheng: for reproducibility
-def worker_init_fn(worker_id):   # After creating the workers, each worker has an independent seed that is initialized to the curent random seed + the id of the worker
+
+def worker_init_fn(worker_id):
+    # After creating the workers, each worker has an independent seed that is initialized to the curent random seed + the id of the worker
     np.random.seed(manual_seed + worker_id)
 
 def train(args):
@@ -23,18 +22,39 @@ def train(args):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    mfcc_x = FileSourceDataset(MFCCSourceNPY("trainfiles.txt"))
-    art_x = FileSourceDataset(ArticulatorySource("trainfiles.txt"))
+    if args.MFCC:
+        # Load MNGU0 features
+        train_x = FileSourceDataset(MFCCSourceNPY("trainfiles.txt"))
+        val_x = FileSourceDataset(MFCCSourceNPY("validationfiles.txt"))
+        test_x = FileSourceDataset(MFCCSourceNPY("testfiles.txt"))
+    elif args.LSF:
+        # Load LSF features
+        train_x = FileSourceDataset(LSFSource("trainfiles.txt"))
+        val_x = FileSourceDataset(LSFSource("validationfiles.txt"))
+        test_x = FileSourceDataset(LSFSource("testfiles.txt"))
+    else:
+        raise NameError("No frontend loaded!")
 
-    mfcc_x_val = FileSourceDataset(MFCCSourceNPY("validationfiles.txt"))
-    art_x_val = FileSourceDataset(ArticulatorySource("validationfiles.txt"))
+    if args.art_norm:
 
-    mfcc_x_test = FileSourceDataset(MFCCSourceNPY("testfiles.txt"))
-    art_x_test = FileSourceDataset(ArticulatorySource("testfiles.txt"))
+        train_y = FileSourceDataset(NormalisedArticulatorySource("trainfiles.txt"))
+        val_y = FileSourceDataset(NormalisedArticulatorySource("validationfiles.txt"))
+        test_y = FileSourceDataset(NormalisedArticulatorySource("testfiles.txt"))
 
-    dataset = NanamiDataset(mfcc_x, art_x)
-    dataset_val = NanamiDataset(mfcc_x_val, art_x_val)
-    dataset_test = NanamiDataset(mfcc_x_test, art_x_test)
+        # Loads normalisaion means and standard deviations for metric handling - 4 times because z-score norm
+        mngu0_mean = np.genfromtxt("mngu0_ema/all_normalised/norm_parms/ema_means.txt")
+        ema_mean = torch.FloatTensor(mngu0_mean[:12]).to(device)
+        mngu0_std = np.genfromtxt("mngu0_ema/all_normalised/norm_parms/ema_stds.txt")
+        ema_std = torch.FloatTensor(mngu0_std[:12]).to(device)
+
+    else:
+        train_y = FileSourceDataset(ArticulatorySource("trainfiles.txt"))
+        val_y = FileSourceDataset(ArticulatorySource("validationfiles.txt"))
+        test_y = FileSourceDataset(ArticulatorySource("testfiles.txt"))
+
+    dataset = NanamiDataset(train_x, train_y)
+    dataset_val = NanamiDataset(val_x, val_y)
+    dataset_test = NanamiDataset(test_x, test_y)
 
     train_loader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=args.batch_size, shuffle=True,
@@ -48,21 +68,24 @@ def train(args):
                                                  batch_size=args.batch_size, shuffle=False,
                                                  num_workers=4,collate_fn=pad_collate)
 
-    if args.BLSTM:
-        model = DBLSTM_MFCC_1(args).to(device)
-
-    # Loss and optimizer
+    if args.Traditional_BLSTM_2:
+        model = Traditional_BLSTM_2(args).to(device)
+    if args.Modern_BLSTM_2:
+        model = Modern_BLSTM_2(args).to(device)
+    if args.Modern_BLSTM_1:
+        model = Modern_DBLSTM_1(args).to(device)
 
     if args.SGD:
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-6, momentum=0.9)
     if args.Adam:
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, momentum=args.weight_decay)
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
     es = EarlyStopping()
 
     # Train the model
 
     epoch_log = np.zeros((args.num_epochs,3))
+
     if args.train:
         writer.add_hparams(args.__dict__,{'started':True})
 
@@ -73,9 +96,18 @@ def train(args):
                 xx_pad,  yy_pad, _, _, mask = sample
 
                 inputs = xx_pad.to(device)
+
                 targets = yy_pad.to(device)
+                if args.art_norm:
+                    targets = (targets + ema_mean)*(4 * ema_std)
+
+
                 mask = mask.to(device)
+
                 outputs = model(inputs)
+                if args.art_norm:
+                    outputs = (outputs + ema_mean)*(4 * ema_std)
+
 
                 loss = torch.sum(((outputs - targets) * mask) ** 2.0) / torch.sum(mask).item()
 
@@ -87,7 +119,6 @@ def train(args):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
 
             total_loss = np.sqrt(total_loss / len(train_loader))
             writer.add_scalar('Loss/Train', total_loss, epoch + 1)
@@ -102,8 +133,14 @@ def train(args):
                     xx_pad, yy_pad, _, _, mask = sample
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
+                    if args.art_norm:
+                        targets = (targets + ema_mean) * (4 * ema_std)
                     mask = mask.to(device)
+
                     outputs = model(inputs)
+
+                    if args.art_norm:
+                        outputs = (outputs + ema_mean) * (4 * ema_std)
 
                     loss = torch.sum(((outputs-targets)*mask)**2.0) / torch.sum(mask).item()
 
@@ -126,9 +163,13 @@ def train(args):
                     xx_pad, yy_pad, _, _, mask = sample
                     inputs = xx_pad.to(device)
                     targets = yy_pad.to(device)
+                    if args.art_norm:
+                        targets = (targets + ema_mean) * (4 * ema_std)
                     mask = mask.to(device)
 
                     outputs = model(inputs)
+                    if args.art_norm:
+                        outputs = (outputs + ema_mean) * (4 * ema_std)
                     loss = torch.sum(((outputs-targets)*mask)**2.0) / torch.sum(mask).item()
                     if targets.shape[0] == args.batch_size:
                         total_loss += loss.item()
@@ -143,7 +184,8 @@ def train(args):
             torch.cuda.empty_cache()
 
             if es.call(epoch_log[epoch,1]):
-                print("Early stopping! Best test loss: ", epoch_log[epoch,2])
+                best_id = np.argmin(epoch_log[:i, 1])
+                print("Early stopping! Best test loss: ", epoch_log[best_id,2])
                 break
         best_id = np.argmin(epoch_log[:i,1])
         writer.add_hparams(args.__dict__,
@@ -156,8 +198,6 @@ def train(args):
             xx_pad, yy_pad, _, _, _ = sample
             inputs = xx_pad.to(device)
             targets = yy_pad.to(device)
-            if args.BLSTM:
-                outputs = model(inputs)
 
             predicted = model(inputs).detach().cpu().numpy()
             targets = targets.detach().cpu().numpy()
